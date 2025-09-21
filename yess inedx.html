@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Spell It to Win It - Word Puzzle</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Special+Elite&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --baby-pink: #ffd6ec;
+      --baby-blue: #caf0f8;
+      --lavender: #bdb2ff;
+      --font-main: 'Special Elite', Courier, monospace;
+      --shadow: 0 2px 8px rgba(180,140,255,0.12);
+    }
+    html, body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, var(--baby-pink), var(--baby-blue), var(--lavender));
+      font-family: var(--font-main);
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 480px;
+      margin: 2rem auto;
+      background: white;
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 2rem;
+      text-align: center;
+    }
+    h1 {
+      color: var(--lavender);
+      font-size: 2.2rem;
+      margin-bottom: 0.5rem;
+    }
+    .instructions {
+      background: var(--baby-pink);
+      border-radius: 12px;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .button-row {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      margin-top: 1.2rem;
+      flex-wrap: wrap;
+    }
+    button {
+      font-family: inherit;
+      background: var(--baby-blue);
+      color: #444;
+      border: none;
+      border-radius: 12px;
+      padding: 0.7rem 2rem;
+      font-size: 1rem;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: background 0.13s;
+    }
+    button:active, button:hover {
+      background: var(--lavender);
+    }
+    .roblox-avatar {
+      margin: 1rem auto 1rem auto;
+      font-size: 3rem;
+      will-change: transform;
+      transition: transform 0.2s;
+    }
+    .roblox-avatar.happy { animation: happy-bounce 0.5s; }
+    .roblox-avatar.sad   { animation: sad-shake 0.5s; }
+    .roblox-avatar.confused { animation: confused-tilt 0.5s; }
+    @keyframes happy-bounce { 0%{transform:translateY(0);} 50%{transform:translateY(-12px);} 100%{transform:translateY(0);} }
+    @keyframes sad-shake { 0%,100%{transform:rotate(0);} 20%,80%{transform:rotate(-8deg);} 40%,60%{transform:rotate(8deg);} }
+    @keyframes confused-tilt { 0%,100%{transform:rotate(0);} 50%{transform:rotate(25deg);} }
+    /* Puzzle grid */
+    #puzzle-board {
+      display: grid;
+      grid-template-columns: repeat(6, 2.2em);
+      grid-template-rows: repeat(6, 2.2em);
+      gap: 0.35em;
+      justify-content: center;
+      margin: 1.7em 0 1em 0;
+      user-select: none;
+      touch-action: manipulation;
+    }
+    .puzzle-cell {
+      background: var(--baby-pink);
+      border-radius: 12px;
+      font-size: 1.4em;
+      font-family: var(--font-main);
+      font-weight: bold;
+      color: #6d39a7;
+      box-shadow: 0 2px 8px rgba(180,140,255,0.11);
+      cursor: pointer;
+      transition: background 0.14s;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 2.3px solid transparent;
+    }
+    .puzzle-cell.selected {
+      background: var(--lavender);
+      border-color: #6d39a7;
+      color: #fff;
+    }
+    #word-in-progress {
+      font-size: 1.3em;
+      margin: 0.8em 0 0.5em 0;
+      letter-spacing: 0.11em;
+      color: #6d39a7;
+      min-height: 1.5em;
+    }
+    .found-word {
+      background: var(--baby-blue);
+      color: #4e18a9;
+      border-radius: 6px;
+      padding: 0.13em 0.45em;
+      margin: 0.15em 0.11em;
+      display: inline-block;
+      font-size: 1em;
+    }
+    .score-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5em;
+      font-size: 1.1em;
+      color: #7a3e9d;
+    }
+    .timer {
+      background: var(--lavender);
+      color: #fff;
+      border-radius: 7px;
+      padding: 0.21em 0.6em;
+      font-size: 1.05em;
+      margin-left: 0.5em;
+      font-weight: bold;
+    }
+    .confetti { pointer-events:none; position:fixed; left:0; top:0; width:100vw; height:100vh; z-index:999; }
+    .music-control {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 2000;
+      background: var(--baby-blue);
+      border-radius: 50%;
+      padding: 0.5em;
+      box-shadow: var(--shadow);
+    }
+    .music-control button {
+      background: none;
+      border: none;
+      color: #6d39a7;
+      font-size: 1.8em;
+      cursor: pointer;
+      outline: none;
+      box-shadow: none;
+      padding: 0;
+    }
+    @media (max-width: 520px) {
+      .container { padding: 0.7em; }
+      h1 { font-size: 1.35em; }
+      .roblox-avatar { font-size: 2em; }
+      #puzzle-board { grid-template-columns: repeat(6, 1.45em); grid-template-rows: repeat(6, 1.45em);}
+      .puzzle-cell { font-size: 1em; }
+      .music-control { top: 8px; right: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Background Music Control -->
+  <div class="music-control" id="music-control">
+    <button id="music-btn" aria-label="Toggle background music">🎵</button>
+  </div>
+  <!-- Home -->
+  <div class="container" id="home-screen">
+    <h1>Spell It to Win It<br><span style="font-size:0.7em; color:#7a3e9d;">Word Puzzle</span></h1>
+    <div class="roblox-avatar" id="home-avatar">🙂</div>
+    <div class="instructions">
+      <strong>How to Play</strong>
+      <ul>
+        <li>Find and connect hidden Grade 7 spelling words in the puzzle grid.</li>
+        <li>Drag (mouse/touch) or tap letters in sequence to spell a word.</li>
+        <li>Words can be horizontal, vertical, or diagonal—forward or backward!</li>
+        <li>Score points for each correct word. Beat the timer for bonus!</li>
+      </ul>
+    </div>
+    <div class="button-row">
+      <button onclick="startGame()">Start Game</button>
+      <button onclick="window.close()">Exit</button>
+    </div>
+  </div>
+  <!-- Game -->
+  <div class="container" id="game-screen" style="display:none;">
+    <div class="roblox-avatar" id="game-avatar">🙂</div>
+    <div class="score-row">
+      <span id="score">Score: 0</span>
+      <span id="timer" class="timer">60</span>
+    </div>
+    <div id="puzzle-board"></div>
+    <div id="word-in-progress"></div>
+    <div class="button-row" style="margin-top:0.6em;">
+      <button onclick="submitWord()" id="submit-btn">Submit</button>
+      <button onclick="clearSelection()" id="clear-btn">Clear</button>
+      <button onclick="showHint()">Hint</button>
+    </div>
+    <div style="margin:0.7em 0;">
+      <strong>Found Words:</strong>
+      <div id="found-words" style="margin-top:0.2em;"></div>
+    </div>
+  </div>
+  <!-- Game Over -->
+  <div class="container" id="gameover-screen" style="display:none;">
+    <h1>🎉 Spell It to Win It 🎉</h1>
+    <div class="roblox-avatar" id="over-avatar">😃</div>
+    <p id="final-score"></p>
+    <p id="bonus-message" style="font-weight:bold;"></p>
+    <div class="button-row">
+      <button onclick="startGame()">Play Again</button>
+      <button onclick="goHome()">Home</button>
+    </div>
+  </div>
+  <!-- Confetti Canvas & Sounds -->
+  <canvas id="confettiCanvas" class="confetti" style="display:none;"></canvas>
+  <audio id="ding" src="https://cdn.pixabay.com/audio/2022/07/26/audio_124bfa1e5b.mp3"></audio>
+  <audio id="buzz" src="https://cdn.pixabay.com/audio/2022/03/15/audio_115b4a4b0e.mp3"></audio>
+  <audio id="celebrate" src="https://cdn.pixabay.com/audio/2022/02/23/audio_115b7cfae2.mp3"></audio>
+  <!-- Background Music (royalty free, looped) -->
+  <audio id="bg-music" src="https://cdn.pixabay.com/audio/2022/07/26/audio_124bfa1e5b.mp3" loop></audio>
+  <script>
+    // --- Grade 7 Word List (engaging, creative) ---
+    const PUZZLE_WORDS = [
+      "abundant","acquire","awkward","banquet","campaign","cautious","collide","compassion",
+      "consequence","courteous","deceive","destiny","dignity","elaborate","emerge","endeavor",
+      "envious","eternal","exaggerate","feasible","fortify","frigid","hazardous","hesitate",
+      "hostile","improvise","inept","intimidate","lofty","meticulous","obsolete","oppress",
+      "perish","plausible","proficient","relinquish","resilient","significant","skeptical",
+      "strategy","subtle","suppress","tedious","thorough","treacherous","unanimous","vague"
+    ]; // Will select a subset for each puzzle
+
+    const GRID_SIZE = 6; // 6x6 grid
+    const WORDS_PER_PUZZLE = 7;
+    const GAME_TIME = 60; // seconds
+
+    // --- Game State ---
+    let grid = [];
+    let wordPlacements = [];
+    let foundWords = [];
+    let selectedPath = [];
+    let currentWord = "";
+    let score = 0;
+    let timer = GAME_TIME;
+    let timerInterval = null;
+    let hintUsed = false;
+
+    // --- Utility Functions ---
+    function randInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        let j = randInt(0, i);
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function goHome() {
+      stopTimer();
+      document.getElementById("home-screen").style.display = "";
+      document.getElementById("game-screen").style.display = "none";
+      document.getElementById("gameover-screen").style.display = "none";
+      document.getElementById("home-avatar").textContent = "🙂";
+    }
+
+    function startGame() {
+      foundWords = [];
+      score = 0;
+      timer = GAME_TIME;
+      hintUsed = false;
+      document.getElementById("score").textContent = "Score: 0";
+      document.getElementById("timer").textContent = GAME_TIME;
+      document.getElementById("game-avatar").textContent = "🙂";
+      document.getElementById("game-avatar").className = "roblox-avatar";
+      document.getElementById("found-words").innerHTML = "";
+      document.getElementById("word-in-progress").textContent = "";
+      document.getElementById("home-screen").style.display = "none";
+      document.getElementById("game-screen").style.display = "";
+      document.getElementById("gameover-screen").style.display = "none";
+      generatePuzzle();
+      drawGrid();
+      startTimer();
+    }
+
+    function endGame() {
+      stopTimer();
+      document.getElementById("game-screen").style.display = "none";
+      document.getElementById("gameover-screen").style.display = "";
+      document.getElementById("over-avatar").textContent = score >= WORDS_PER_PUZZLE*17 ? "😃" : "🙂";
+      document.getElementById("final-score").textContent = `You found ${foundWords.length} out of ${wordPlacements.length} words! Your score: ${score}`;
+      if (score >= WORDS_PER_PUZZLE*17) {
+        document.getElementById("bonus-message").textContent = "Amazing! You mastered this puzzle!";
+        playSound('celebrate');
+        runConfetti();
+      } else if (foundWords.length > Math.floor(WORDS_PER_PUZZLE*0.6)) {
+        document.getElementById("bonus-message").textContent = "Great job! Try for a perfect score!";
+        playSound('ding');
+      } else {
+        document.getElementById("bonus-message").textContent = "Keep practicing, champion!";
+        playSound('buzz');
+      }
+    }
+
+    function startTimer() {
+      stopTimer();
+      document.getElementById("timer").textContent = timer;
+      timerInterval = setInterval(() => {
+        timer--;
+        document.getElementById("timer").textContent = timer;
+        if (timer === 0) {
+          stopTimer();
+          setTimeout(endGame, 400);
+        }
+      }, 1000);
+    }
+    function stopTimer() { if (timerInterval) clearInterval(timerInterval); }
+
+    // --- Puzzle Generation ---
+    function generatePuzzle() {
+      // Select random words, randomize order
+      let words = shuffle([...PUZZLE_WORDS]).slice(0, WORDS_PER_PUZZLE);
+      wordPlacements = [];
+      grid = Array(GRID_SIZE).fill(0).map(()=>Array(GRID_SIZE).fill(''));
+      // Place words
+      for (let w of words) {
+        let placed = false, tries = 0;
+        while (!placed && tries < 35) {
+          tries++;
+          let dir = shuffle([
+            [1,0],[0,1],[1,1],[1,-1],[-1,0],[0,-1],[-1,-1],[-1,1]
+          ])[0];
+          let x = randInt(0, GRID_SIZE-1), y = randInt(0, GRID_SIZE-1);
+          let path = [];
+          let fit = true;
+          for (let i = 0; i < w.length; i++) {
+            let nx = x + dir[0]*i, ny = y + dir[1]*i;
+            if (
+              nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE ||
+              (grid[nx][ny] && grid[nx][ny] !== w[i])
+            ) { fit = false; break; }
+            path.push([nx,ny]);
+          }
+          if (fit) {
+            for(let i=0; i<w.length; i++) grid[x+dir[0]*i][y+dir[1]*i] = w[i];
+            wordPlacements.push({word: w, path});
+            placed = true;
+          }
+        }
+      }
+      // Fill empty cells
+      let alphabet = "abcdefghijklmnopqrstuvwxyz";
+      for (let i=0; i<GRID_SIZE; i++) for (let j=0; j<GRID_SIZE; j++)
+        if (!grid[i][j]) grid[i][j] = alphabet[randInt(0,25)];
+    }
+
+    // --- Puzzle UI ---
+    function drawGrid() {
+      const board = document.getElementById("puzzle-board");
+      board.innerHTML = "";
+      for (let i=0; i<GRID_SIZE; i++) for (let j=0; j<GRID_SIZE; j++) {
+        let idx = i*GRID_SIZE+j;
+        let cell = document.createElement("div");
+        cell.className = "puzzle-cell";
+        cell.textContent = grid[i][j].toUpperCase();
+        cell.dataset.x = i;
+        cell.dataset.y = j;
+        cell.setAttribute('tabindex',0);
+        cell.onmousedown = cell.ontouchstart = e => startSelect(i,j,e);
+        cell.onmouseenter = cell.ontouchmove = e => hoverSelect(i,j,e);
+        cell.onmouseup = cell.ontouchend = e => finishSelect(e);
+        cell.onkeydown = e=>{
+          if(e.key==='Enter'||e.key===' '){ startSelect(i,j,e); finishSelect(e);}
+        }
+        board.appendChild(cell);
+      }
+    }
+
+    // --- Letter Selection (connect/tap/drag) ---
+    let selecting = false;
+    function startSelect(i,j,e) {
+      if (timer === 0) return;
+      selecting = true;
+      selectedPath = [[i,j]];
+      highlightPath();
+      updateInProgress();
+      e.preventDefault && e.preventDefault();
+    }
+    function hoverSelect(i,j,e) {
+      if (!selecting) return;
+      let last = selectedPath[selectedPath.length-1];
+      if (last[0]===i && last[1]===j) return;
+      // Only allow adjacent cells
+      if (Math.abs(last[0]-i)<=1 && Math.abs(last[1]-j)<=1) {
+        // Prevent revisiting same cell
+        if (!selectedPath.some(([x,y])=>x===i&&y===j)) {
+          selectedPath.push([i,j]);
+          highlightPath();
+          updateInProgress();
+        }
+      }
+      e.preventDefault && e.preventDefault();
+    }
+    function finishSelect(e) {
+      if (!selecting) return;
+      selecting = false;
+      updateInProgress();
+      e && e.preventDefault && e.preventDefault();
+    }
+    function highlightPath() {
+      document.querySelectorAll('.puzzle-cell').forEach(cell=>cell.classList.remove('selected'));
+      for (let [i,j] of selectedPath) {
+        let idx = i*GRID_SIZE+j;
+        document.querySelectorAll('.puzzle-cell')[idx].classList.add('selected');
+      }
+    }
+    function updateInProgress() {
+      currentWord = selectedPath.map(([i,j])=>grid[i][j]).join('');
+      document.getElementById("word-in-progress").textContent = currentWord.toUpperCase();
+    }
+    function submitWord() {
+      if (timer === 0) return;
+      if (!currentWord || currentWord.length < 3) return;
+      let found = wordPlacements.find(wp=>
+        wp.word.toUpperCase()===currentWord.toUpperCase() && !foundWords.includes(wp.word)
+      );
+      if (found) {
+        foundWords.push(found.word);
+        score += found.word.length*3 + (hintUsed?0:3);
+        playSound('ding');
+        setAvatarMood("happy");
+        document.getElementById("score").textContent = "Score: " + score;
+        document.getElementById("found-words").innerHTML = foundWords.map(
+          w=>`<span class="found-word">${w.toUpperCase()}</span>`
+        ).join('');
+        if(foundWords.length===wordPlacements.length) setTimeout(endGame,500);
+      } else {
+        playSound('buzz');
+        setAvatarMood("confused");
+      }
+      clearSelection();
+    }
+    function clearSelection() {
+      selectedPath = [];
+      highlightPath();
+      currentWord = "";
+      document.getElementById("word-in-progress").textContent = "";
+    }
+    function showHint() {
+      if (timer===0) return;
+      // Show first letter of a hidden word
+      let unFound = wordPlacements.filter(wp=>!foundWords.includes(wp.word));
+      if (!unFound.length) return;
+      let hintWord = shuffle(unFound)[0];
+      let msg = `Hint: Word starting with "${hintWord.word[0].toUpperCase()}"`;
+      document.getElementById("word-in-progress").textContent = msg;
+      setAvatarMood("idle");
+      hintUsed = true;
+    }
+
+    // --- Avatar & Sound ---
+    function setAvatarMood(mood) {
+      const avatar = document.getElementById("game-avatar");
+      avatar.textContent = (
+        mood === "happy" ? "😃"
+        : mood === "sad" ? "😢"
+        : mood === "confused" ? "😕"
+        : "🙂"
+      );
+      avatar.className = "roblox-avatar " + mood;
+      setTimeout(() => avatar.className = "roblox-avatar", 650);
+    }
+    function playSound(id) {
+      const el = document.getElementById(id);
+      if (el) { el.currentTime=0; el.play(); }
+    }
+
+    // --- Confetti animation (simple) ---
+    function runConfetti() {
+      const canvas = document.getElementById('confettiCanvas');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvas.style.display = '';
+      const ctx = canvas.getContext('2d');
+      let confs = Array.from({length:65},()=>({
+        x:Math.random()*canvas.width,
+        y:Math.random()*-canvas.height,
+        r:Math.random()*8+4,
+        c:`hsl(${Math.random()*360},70%,85%)`,
+        d:Math.random()*5+2
+      }));
+      let frame = 0;
+      function draw() {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        confs.forEach(f=>{
+          ctx.beginPath();
+          ctx.arc(f.x,f.y,f.r,0,2*Math.PI);
+          ctx.fillStyle = f.c;
+          ctx.fill();
+          f.y += f.d;
+          f.x += Math.sin(frame/10+f.r)*2;
+          if (f.y > canvas.height) f.y = -10;
+        });
+        frame++;
+        if (frame < 75) requestAnimationFrame(draw);
+        else setTimeout(()=>canvas.style.display='none',550);
+      }
+      draw();
+    }
+
+    // Accessibility: Enter key submits, Space clears
+    document.body.addEventListener('keydown', function(e){
+      if(document.activeElement.classList.contains('puzzle-cell')) {
+        if(e.key==='Enter'||e.key===' ') {
+          if (selecting) finishSelect(e);
+          else startSelect(Number(document.activeElement.dataset.x), Number(document.activeElement.dataset.y), e);
+        }
+      }
+      if (e.key==='Enter'&&document.getElementById("game-screen").style.display!=="none") submitWord();
+      if (e.key==='Escape'&&document.getElementById("game-screen").style.display!=="none") clearSelection();
+    });
+
+    // --- Background Music Logic ---
+    const bgMusic = document.getElementById("bg-music");
+    const musicBtn = document.getElementById("music-btn");
+    let musicPlaying = false;
+
+    // Replace with your preferred background song (royalty free):
+    // https://pixabay.com/music for more options
+
+    function playMusic() {
+      bgMusic.volume = 0.18;
+      bgMusic.play();
+      musicPlaying = true;
+      musicBtn.textContent = "🔊";
+    }
+    function pauseMusic() {
+      bgMusic.pause();
+      musicPlaying = false;
+      musicBtn.textContent = "🎵";
+    }
+
+    musicBtn.addEventListener("click", function() {
+      if (!musicPlaying) {
+        playMusic();
+      } else {
+        pauseMusic();
+      }
+    });
+
+    // On user interaction, start music if not already started (for autoplay policy)
+    window.addEventListener('click', function oncePlayMusic() {
+      if (!musicPlaying) playMusic();
+      window.removeEventListener('click', oncePlayMusic);
+    });
+
+    // --- Start at home ---
+    goHome();
+
+  </script>
+</body>
+</html>
